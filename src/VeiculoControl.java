@@ -18,11 +18,15 @@ public class VeiculoControl {
 		Connection connection = factory.newConnection();
 		Channel channel = connection.createChannel();
 		
-		channel.exchangeDeclare(EXCHANGE_NAME, "fanout");
 		Scanner scan = new Scanner(System.in);
 		
 		System.out.print("Informe a placa do veículo: ");
 		String id = scan.nextLine();
+		
+		//String QUEUE_NAME = id;
+		
+		channel.exchangeDeclare(EXCHANGE_NAME, "fanout");
+		channel.queueDeclare(id, false, false, false, null);
 		
 		Veiculo v = new Veiculo(id);
 
@@ -91,7 +95,7 @@ public class VeiculoControl {
 		// fanout
 		channel.basicConsume(nomeFila, true, deliverCallback, consumerTag -> {});
 		// direct
-		//channel.basicConsume(username, true, deliverCallback, consumerTag -> {});
+		channel.basicConsume(id, true, deliverCallback, consumerTag -> {});
 	}
 
 }
