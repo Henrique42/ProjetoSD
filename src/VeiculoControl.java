@@ -44,6 +44,7 @@ public class VeiculoControl extends Control{
 		System.out.println("2. Enviar mensagem para a Central.");
 		System.out.println("3. Enviar mensagem para outro veículo.");
 		System.out.println("4. Informar posição e velocidade.");
+		System.out.println("5. Informar parada programada.");
 		System.out.println("0. Sair.");
 		System.out.println("--------------------------------------");
 		System.out.println("Escolha uma opção: ");
@@ -52,6 +53,9 @@ public class VeiculoControl extends Control{
 	
 	private static void emissor(Channel channel, Scanner scan, String placa) throws Exception {
 		String mensagem;
+		// Para pegar a velocidade e a posição de forma aleatória 
+		Random rand;
+		int vel, pos[];
 		
 		while(true) {
 			imprimirMenu();
@@ -75,12 +79,21 @@ public class VeiculoControl extends Control{
 					break;
 				// Envia velocidade e posição para a central
 				case "4":
-					int vel, pos[] = new int[2];
-					Random rand = new Random();
+					pos = new int[2];
+					rand = new Random();
 					
 					vel = rand.nextInt(300);
 					pos[0] = rand.nextInt(100); pos[1] = rand.nextInt(100);
 					mensagem = "[INFO] Velocidade atual = " + vel + " km/h. Coordenadas = (" + pos[0] + ", " + pos[1] + ").";
+					envioPrivado(channel, mensagem, placa, "central", scan);
+					break;
+				// Informa parada programada para a central
+				case "5":
+					pos = new int[2];
+					rand = new Random();
+					
+					pos[0] = rand.nextInt(100); pos[1] = rand.nextInt(100);
+					mensagem = "[INFO] Parada programada nas coordenadas (" + pos[0] + ", " + pos[1] + ").";
 					envioPrivado(channel, mensagem, placa, "central", scan);
 					break;
 				// sair
