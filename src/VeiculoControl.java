@@ -1,3 +1,4 @@
+import java.util.Random;
 import java.util.Scanner;
 
 import com.rabbitmq.client.Channel;
@@ -5,11 +6,10 @@ import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DeliverCallback;
 
-public class VeiculoControl {
-	
-	private static final String EXCHANGE_NAME = "geral";
+public class VeiculoControl extends Control{
 	
 	public static void main(String[] args) throws Exception{
+		// Inicializa conexão
 		ConnectionFactory factory = new ConnectionFactory();
 		factory.setHost("127.0.0.1");
 		factory.setUsername("guest");
@@ -20,18 +20,17 @@ public class VeiculoControl {
 		
 		Scanner scan = new Scanner(System.in);
 		
-		System.out.print("Informe a placa do veículo: ");
-		String id = scan.nextLine();
+		System.out.print("> Informe a placa do veículo: ");
+		String placa = scan.nextLine();
 		
-		//String QUEUE_NAME = id;
-		
+		// Declaração da queue e da exchange
 		channel.exchangeDeclare(EXCHANGE_NAME, "fanout");
-		channel.queueDeclare(id, false, false, false, null);
+		channel.queueDeclare(placa, false, false, false, null);
 		
-		Veiculo v = new Veiculo(id);
-
-		receptor(channel, id);
-		emissor(channel, scan, v);
+		// chama método que realiza as operações de recepção
+		receptor(channel, placa);
+		// chama método que realiza as operações de recepção
+		emissor(channel, scan, placa);
 		
 		channel.close();
 		connection.close();
@@ -40,20 +39,18 @@ public class VeiculoControl {
 	
 	// Imprime o menu de opções para o veículo
 	private static void imprimirMenu() {
-		System.out.println("-------------------");
+		System.out.println("--------------------------------------");
 		System.out.println("1. Enviar alerta.");
+		System.out.println("2. Enviar mensagem para a Central.");
+		System.out.println("3. Enviar mensagem para outro veículo.");
+		System.out.println("4. Informar posição e velocidade.");
 		System.out.println("0. Sair.");
-		System.out.println("-------------------");
+		System.out.println("--------------------------------------");
 		System.out.println("Escolha uma opção: ");
-		System.out.println("-------------------");
+		System.out.println("--------------------------------------");
 	}
 	
-	// Método que envia mensagens para todos os consumidores;
-	private static void envioGlobal(Channel channel, String mensagem) throws Exception{
-		channel.basicPublish(EXCHANGE_NAME, "", null, mensagem.getBytes("UTF-8"));
-	}
-	
-	private static void emissor(Channel channel, Scanner scan, Veiculo v) throws Exception {
+	private static void emissor(Channel channel, Scanner scan, String placa) throws Exception {
 		String mensagem;
 		
 		while(true) {
@@ -61,16 +58,38 @@ public class VeiculoControl {
 			String op = scan.nextLine();
 			
 			switch(op){
+				// enviar alerta global
 				case "1":
-					mensagem = " [!] Veículo " + v.getPlaca() +" enviou um alerta!";
+					mensagem = " [!] Veículo " + placa +" enviou um alerta!";
 					envioGlobal(channel, mensagem);
 					break;
+				// Enviar mensagem privada para a central
+				case "2":
+					System.out.println("> Digite a mensagem ==> ");
+					mensagem = scan.nextLine();
+					envioPrivado(channel, mensagem, placa, "central", scan);
+					break;
+				// Enviar mensagem privada para outro veículo
+				case "3":
+					mandaZap(channel, "Veículo " + placa, scan);
+					break;
+				// Envia velocidade e posição para a central
+				case "4":
+					int vel, pos[] = new int[2];
+					Random rand = new Random();
+					
+					vel = rand.nextInt(300);
+					pos[0] = rand.nextInt(100); pos[1] = rand.nextInt(100);
+					mensagem = "[INFO] Velocidade atual = " + vel + " km/h. Coordenadas = (" + pos[0] + ", " + pos[1] + ").";
+					envioPrivado(channel, mensagem, placa, "central", scan);
+					break;
+				// sair
 				case "0":
-					mensagem = " [x] Veículo " + v.getPlaca() +" saiu do sistema!";
+					mensagem = " [x] Veículo " + placa +" saiu do sistema!";
 					envioGlobal(channel, mensagem);
 					break;
 				default:
-					System.out.println("Número inválido!");
+					System.out.println("[x] Opção inválida!");
 					break;
 			}
 			
@@ -78,13 +97,14 @@ public class VeiculoControl {
 		}
 	}
 	
-	private static void receptor(Channel channel, String id) throws Exception {
+	// Método que permite que a central receba por fanout e direct
+	private static void receptor(Channel channel, String placa) throws Exception {
 		String nomeFila = channel.queueDeclare().getQueue();
 		channel.queueBind(nomeFila, EXCHANGE_NAME, "");
 		
 		String mensagem;
 		
-		mensagem = " [!] Veículo " + id +" foi cadastrado no sistema!";
+		mensagem = " [!] Veículo " + placa +" foi cadastrado no sistema!";
 		channel.basicPublish(EXCHANGE_NAME, "", null, mensagem.getBytes("UTF-8"));
 		
 		DeliverCallback deliverCallback = (consumerTag, delivery) -> {
@@ -95,7 +115,7 @@ public class VeiculoControl {
 		// fanout
 		channel.basicConsume(nomeFila, true, deliverCallback, consumerTag -> {});
 		// direct
-		channel.basicConsume(id, true, deliverCallback, consumerTag -> {});
+		channel.basicConsume(placa, true, deliverCallback, consumerTag -> {});
 	}
 
 }
